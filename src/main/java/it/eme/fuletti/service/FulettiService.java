@@ -41,15 +41,9 @@ public class FulettiService {
 
     public void aggiornaDb() {
         long millisIniz = System.currentTimeMillis();
-        List<Albo> albi = new ArrayList<Albo>();
-        ArrayList<Albo> albiTutti = (ArrayList<Albo>) albiDaSito();
-        for (Albo albo : albiTutti) {
-            System.out.println("Albo "+albo.getTitolo()+" presente="+alboPresente(albo));
-            if (!alboPresente(albo)) albi.add(albo);
-        }
+        List<Albo> albi = albiDaSito();
         long durata = System.currentTimeMillis() - millisIniz;
-        System.out.println("Filtrati da "+albiTutti.size()+" a "+albi.size()+" albi");
-        System.out.println("Impiegati "+durata+" ms. Scrivo su db.");
+        System.out.println("Trovati "+albi.size()+" albi in "+durata+" ms. Scrivo su db.");
         alboRepository.saveAll(albi);
     }
 
@@ -62,7 +56,7 @@ public class FulettiService {
     }
 
     private boolean alboPresente(Albo albo) {
-        System.out.println("Cerco albo n. "+albo.getNumero()+" di "+albo.getTestata().getNome());
+        //System.out.println("Cerco albo n. "+albo.getNumero()+" di "+albo.getTestata().getNome());
         List<Albo> trovati = alboRepository.findByNumeroAndTitoloAndTestata(albo.getNumero(), albo.getTitolo(), albo.getTestata());//alboRepository.findByNumeroAndTestata(albo.getNumero(), albo.getTestata());//alboRepository.albiPresenti(albo.getNumero(), albo.getTestata().getNome());
         return !trovati.isEmpty();
     }

@@ -10,7 +10,7 @@ import java.sql.Timestamp;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@ToString
+//@ToString
 @Entity
 @Table(name = "albo")
 public class Albo {
@@ -43,7 +43,11 @@ public class Albo {
     @Column(name = "preso", nullable = true)
     private boolean preso;
 
-    public boolean isUgualee(Albo altro) {
+    public boolean isUguale(Albo altro) {
         return (this.testata.equals(altro.getTestata()) && this.numero == altro.getNumero() && this.titolo.equalsIgnoreCase(altro.getTitolo()));
+    }
+
+    public String toString() {
+        return testata.getNome()+" "+numero+" "+titolo+" "+ uscita+" "+prezzo+" "+url_copertina;
     }
 }

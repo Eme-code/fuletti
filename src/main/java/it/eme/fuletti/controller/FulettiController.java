@@ -38,7 +38,7 @@ public class FulettiController {
         for (Albo albo : albi) {
             if (!albo.isPreso() && albo.getUscita().before(new Timestamp(System.currentTimeMillis()))) {
                 quantiDaPrendere ++;
-                prezzoTotale.add(albo.getPrezzo()); //+= albo.getPrezzo();
+                prezzoTotale = prezzoTotale.add(albo.getPrezzo()); //+= albo.getPrezzo();
             }
         }
         modello.addAttribute("listaAlbi", albi);
@@ -67,4 +67,5 @@ public class FulettiController {
         return "Prova";
     }
 
+    //TODO Endpoint e relativi metodi per correggere url delle copertine
 }
