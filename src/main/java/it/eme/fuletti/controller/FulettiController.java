@@ -8,6 +8,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -47,6 +48,13 @@ public class FulettiController {
         return "principale";
     }
 
+    @GetMapping("/getAlbi")
+    @ResponseBody()
+    public List<Albo> getAlbi(Model modello) {
+        albi = service.albiDaDb();
+        return albi;
+    }
+
     @GetMapping("/invertiPreso")
     public String invertiPreso(@RequestParam(name="id", required=false, defaultValue="") int id, Model modello) {
         service.invertiPreso(id);
@@ -67,5 +75,5 @@ public class FulettiController {
         return "Prova";
     }
 
-    //TODO Endpoint e relativi metodi per correggere url delle copertine
+    //TODO Trovare prezzo corretto e di tutti
 }
