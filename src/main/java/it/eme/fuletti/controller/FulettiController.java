@@ -3,12 +3,10 @@ package it.eme.fuletti.controller;
 import it.eme.fuletti.model.Albo;
 import it.eme.fuletti.service.FulettiService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -49,10 +47,11 @@ public class FulettiController {
     }
 
     @GetMapping("/getAlbi")
-    @ResponseBody()
-    public List<Albo> getAlbi(Model modello) {
+    @CrossOrigin(origins = "*", allowedHeaders = "*")
+    //@ResponseBody()
+    public ResponseEntity<List<Albo>> getAlbi(Model modello) {
         albi = service.albiDaDb();
-        return albi;
+        return ResponseEntity.ok().body(albi);//albi;
     }
 
     @GetMapping("/invertiPreso")
