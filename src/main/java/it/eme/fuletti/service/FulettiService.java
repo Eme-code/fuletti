@@ -40,11 +40,24 @@ public class FulettiService {
     }
 
     public void aggiornaDb() {
-        long millisIniz = System.currentTimeMillis();
+        //long millisIniz = System.currentTimeMillis();
+        long tempoInizio = System.nanoTime();
         List<Albo> albi = albiDaSito();
-        long durata = System.currentTimeMillis() - millisIniz;
-        System.out.println("Trovati "+albi.size()+" albi in "+durata+" ms. Scrivo su db.");
+        //long durata = System.currentTimeMillis() - millisIniz;
+        //System.out.println("Trovati "+albi.size()+" albi in "+durata+" ms. Scrivo su db.");
+        long durataSecondi = (System.nanoTime() - tempoInizio) / 1_000_000_000L;
+        System.out.print("Finita ricerca albi su sito. Trovati "+albi.size()+" albi. ");
+        System.out.printf("Durata totale: %d ore, %d minuti e %d secondi%n"+". Scrivo su db.", durataSecondi / 3600, (durataSecondi % 3600) / 60, durataSecondi % 60);
         alboRepository.saveAll(albi);
+        System.out.println(" Db aggiornato.");
+    }
+
+    public void test() {
+        System.out.println("Inizio test");
+        ArrayList<Testata> testateTutte = (ArrayList<Testata>) testataRepository.findAttivi();
+        Parser parser = new Parser(testateTutte, alboRepository);
+        parser.test();
+        System.out.println("Test finito");
     }
 
     private List<Albo> albiDaSito() {

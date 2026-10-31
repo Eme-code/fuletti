@@ -20,12 +20,15 @@ import it.eme.fuletti.model.Testata;
 import it.eme.fuletti.repository.AlboRepository;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @NoArgsConstructor
 @AllArgsConstructor
 public class Parser {
 	
 	private ArrayList<Testata> testate;
+
+    @Autowired
     AlboRepository alboRepository;
 
 	public List<Albo> trovaAlbiTutti() {
@@ -48,6 +51,102 @@ public class Parser {
 	}
 
     private List<Albo> trovaAlbiRest(Testata testata, Set<String> tuttiTitoli) {
+        Helper helper = new Helper();
+        List<Albo> albi = new ArrayList<>();
+        HttpClient client = HttpClient.newHttpClient();
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            // 1. HTML: recupera gli URL dei prodotti e la paginazione.
+            List<String> urlProdotti = helper.trovaUrlProdottiTestata(testata.getUrl_sbe(), client);
+            // 2. REST: recupera i dati generali in batch.
+            Map<String, JsonNode> prodottiPerSlug = helper.recuperaProdottiRest(urlProdotti, client, mapper);
+            for (String url : urlProdotti) {
+                String slug = helper.slugDaUrl(url);
+                JsonNode prodotto = prodottiPerSlug.get(slug);
+                if (prodotto == null) throw new IOException("Prodotto non restituito dalla REST: " + url);
+                // Titolo dalla REST, come nel metodo originale:
+                // decodifica HTML e normalizza l'apostrofo.
+                String titoloCodificato = prodotto.path("title").path("rendered").asText("");
+                String titolo = org.jsoup.parser.Parser.unescapeEntities(titoloCodificato, false).replaceAll("’", "'").replace("\u0085", "...");
+                // 3. FILTRO ORIGINALE: non recuperare JSON-LD
+                // per albi già presenti o varianti.
+                if (tuttiTitoli.contains(titolo) || titolo.contains("? Variant") || titolo.contains("1 Variant") || titolo.contains("– Variant")) {
+                    //System.out.println("Titolo " + titolo + " già presente");
+                    continue;
+                }
+                // 4. JSON-LD soltanto per gli albi candidati.
+                long ultimoAvvio = helper.getUltimoAvvioRichiestaNanos();
+                if (ultimoAvvio != 0L) {
+                    long trascorso = System.nanoTime() - ultimoAvvio;
+                    long attesa = 1_000_000_000L - trascorso;
+                    if (attesa > 0L) java.util.concurrent.TimeUnit.NANOSECONDS.sleep(attesa);
+                }
+                String urlProdotto = prodotto.path("link").asText(url);
+                JsonNode productLd = helper.recuperaProductJsonLd(urlProdotto, client, mapper);
+                if (productLd == null) {
+                    throw new IOException("JSON-LD Product non trovato: " + urlProdotto);
+                }
+                Albo albo = new Albo();
+                albo.setTestata(testata);
+                albo.setTitolo(titolo);
+                // Numero: JSON-LD, se disponibile.
+                String numero = helper.estraiProprietaProduct(productLd, "pa_numero");
+                if (numero != null && !numero.isBlank()) {
+                    try {
+                        albo.setNumero(Integer.parseInt(numero.trim()));
+                    } catch (NumberFormatException e) {
+                        System.out.println("Numero non valido per " + titolo + ": " + numero);
+                    }
+                }
+                // Data di uscita editoriale: JSON-LD, se disponibile.
+                String dataUscita = helper.estraiProprietaProduct(productLd, "pa_data-di-uscita");
+                if (dataUscita != null && !dataUscita.isBlank()) {
+                    Timestamp uscita = testoToTimestamp(testoToValore(dataUscita));
+                    albo.setUscita(uscita);
+                    System.out.println("Titolo " + titolo + " nuovo uscito il " + uscita);
+                } else System.out.println("Data di uscita non disponibile per " + titolo);
+                // Prezzo in euro: non dividere per 100.
+                String prezzoStr = helper.estraiPrezzoProduct(productLd);
+                if (prezzoStr != null && !prezzoStr.isBlank()) {
+                    BigDecimal prezzo = new BigDecimal(prezzoStr).setScale(2, java.math.RoundingMode.DOWN);
+                    albo.setPrezzo(prezzo);
+                }
+                // Copertina: prima dalla REST, poi dal JSON-LD
+                // soltanto se la REST non fornisce un URL.
+                String urlCopertina = "";
+                JsonNode immaginiRest = prodotto.path("_embedded").path("wp:featuredmedia");
+                if (immaginiRest.isArray() && !immaginiRest.isEmpty()) {
+                    urlCopertina = immaginiRest.get(0).path("source_url").asText("");
+                }
+                if (urlCopertina.isBlank()) {
+                    JsonNode immagineLd = productLd.path("image");
+                    if (immagineLd.isArray() && !immagineLd.isEmpty()) {
+                        JsonNode primaImmagine = immagineLd.get(0);
+                        urlCopertina = primaImmagine.isTextual() ? primaImmagine.asText("") : primaImmagine.path("url").asText("");
+                    } else if (immagineLd.isTextual()) urlCopertina = immagineLd.asText("");
+                    else if (immagineLd.isObject()) urlCopertina = immagineLd.path("url").asText("");
+                }
+                if (!urlCopertina.isBlank()) albo.setUrl_copertina(urlCopertina);
+                // Manteniamo il comportamento originale.
+                albo.setPreso(false);
+                albi.add(albo);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrogazione interrotta per la testata " + testata.getNome(), e);
+        } catch (IOException e) {
+            throw new RuntimeException("Errore durante l'importazione REST/JSON-LD della testata " + testata.getNome(), e);
+        }
+        System.out.println("Trovati " + albi.size() + " albi pronti per la scrittura per la testata " + testata.getNome());
+        for (Albo albo : albi) {
+            System.out.println("Pronto per la scrittura "+albo.toString());
+        }
+        return albi;
+    }
+
+    private List<Albo> trovaAlbiRestMio(Testata testata, Set<String> tuttiTitoli) {
+        //Questo l'ho fatto interamente io, a differenza di quello in uso, fatto insieme a ChatGPT. Per ora lo tengo per confronto
+        Helper helper = new Helper();
         List<Albo> albi = new ArrayList<>();
         String urlTestata = testata.getUrl_sbe();
         String slug = urlTestata.substring(urlTestata.lastIndexOf('=') + 1);
@@ -65,9 +164,7 @@ public class Parser {
             }
             //TODO Applicare attesa per i secondi dati da riprovaDopo
             //String body = response.body();
-            /*System.out.println("Content-Type = " + response.headers().firstValue("Content-Type").orElse("non presente"));
-            System.out.println("Titolo grezzo = " + body.substring(0, Math.min(1000, body.length())));
-            System.out.println("URL REST = " + url + query);*/
+
             System.out.println("Status = " + response.statusCode());
             //response.headers().map().forEach((nome, valori) -> System.out.println(nome + " = " + valori));
             //System.out.println("Body = " + response.body());
@@ -141,5 +238,10 @@ public class Parser {
 
     private String testoToValore(String testo) {
         return testo.substring(testo.indexOf(':')+1).trim();
+    }
+
+    public void test() {
+        Helper helper = new Helper();
+        helper.verificaJsonLd();
     }
 }

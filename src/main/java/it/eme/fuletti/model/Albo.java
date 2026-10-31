@@ -43,10 +43,15 @@ public class Albo {
     @Column(name = "preso", nullable = true)
     private boolean preso;
 
+    @Column(name = "inserimento", insertable = false, updatable = false, nullable = true)
+    //Insertable e updatable impediscono che venga scritto il valore null e lasciano che il db metta quello di default, che è la data odierna
+    private Timestamp inserimento;
+
     public boolean isUguale(Albo altro) {
         return (this.testata.equals(altro.getTestata()) && this.numero == altro.getNumero() && this.titolo.equalsIgnoreCase(altro.getTitolo()));
     }
 
+    @Override
     public String toString() {
         return testata.getNome()+" "+numero+" "+titolo+" "+ uscita+" "+prezzo+" "+url_copertina;
     }

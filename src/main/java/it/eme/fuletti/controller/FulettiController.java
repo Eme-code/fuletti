@@ -74,5 +74,11 @@ public class FulettiController {
         return "Prova";
     }
 
+    @GetMapping("/test")
+    public String test() {
+        service.test();
+        return "redirect:/";
+    }
+
     //TODO Trovare prezzo corretto e di tutti
 }
